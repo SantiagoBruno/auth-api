@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Get,
+  HttpCode,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -25,6 +26,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(200)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
