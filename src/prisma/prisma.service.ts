@@ -8,7 +8,9 @@ export class PrismaService implements OnModuleInit {
   private prisma!: PrismaClient;
 
   async onModuleInit() {
-    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaPg({
+      connectionString: process.env.DATABASE_URL,
+    });
     this.prisma = new PrismaClient({ adapter });
     await this.prisma.$connect();
   }
