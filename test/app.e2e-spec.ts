@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
@@ -9,6 +10,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
+  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -20,6 +22,7 @@ describe('Auth (e2e)', () => {
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
+    jwtService = moduleFixture.get(JwtService);
   });
 
   beforeEach(async () => {
@@ -71,6 +74,27 @@ describe('Auth (e2e)', () => {
         .send({})
         .expect(400);
     });
+
+    it('rejeita quando password está ausente', () => {
+      return request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'test@example.com' })
+        .expect(400);
+    });
+
+    it('rejeita quando email está ausente', () => {
+      return request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ password: 'senha123' })
+        .expect(400);
+    });
+
+    it('aceita senha com exatamente 6 caracteres', () => {
+      return request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'test@example.com', password: '123456' })
+        .expect(201);
+    });
   });
 
   describe('POST /auth/login', () => {
@@ -113,6 +137,20 @@ describe('Auth (e2e)', () => {
         .send({ email: 'nao-e-email' })
         .expect(400);
     });
+
+    it('rejeita quando password está ausente', () => {
+      return request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'user@example.com' })
+        .expect(400);
+    });
+
+    it('rejeita body vazio', () => {
+      return request(app.getHttpServer())
+        .post('/auth/login')
+        .send({})
+        .expect(400);
+    });
   });
 
   describe('GET /auth/profile', () => {
@@ -149,6 +187,25 @@ describe('Auth (e2e)', () => {
       return request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', 'Bearer token.invalido.aqui')
+        .expect(401);
+    });
+
+    it('rejeita token expirado', () => {
+      const expiredToken = jwtService.sign(
+        { sub: 1, email: 'profile@example.com' },
+        { expiresIn: '0s' },
+      );
+
+      return request(app.getHttpServer())
+        .get('/auth/profile')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .expect(401);
+    });
+
+    it('rejeita Authorization sem prefixo Bearer', () => {
+      return request(app.getHttpServer())
+        .get('/auth/profile')
+        .set('Authorization', token)
         .expect(401);
     });
   });
